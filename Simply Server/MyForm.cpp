@@ -105,7 +105,7 @@ void  SimplyServer::TTTHFile::Execute()
 	// чтение из файла и вычисление TTH
 	while ((cbReaded = fs->Read(b, 0, BUFFER_SIZE)) > 0)
 	{
-		tt_update(&ctx, hash, cbReaded);
+		tt_update(&ctx, b, cbReaded);
 		iTotalReaded_ += cbReaded;
 
 		/*if (Terminated)
