@@ -1,0 +1,43 @@
+The files makefile, tiger.c, sboxes.c, and testtiger.c are almost 
+exactly as available from the webpage of the creators of Tiger, at...
+
+http://www.cs.technion.ac.il/~biham/Reports/Tiger
+
+The one change is that some datatypes and the function prototype 
+have been separated out of tiger.c into a tiger.h file.
+
+IMPORTANT NOTE: There is reason to believe that this code
+won't adapt its endianness properly to MSVC++. Be sure to
+check your hash results against the test values at the
+above website. 
+
+ANOTHER IMPORTANT NOTE: the original Tiger authors' testtiger.c
+displays the hash values as "three little-endian 64-bit
+hexadecimal numbers".
+
+As a result, the hypothetical 24-byte array:
+
+decimal
+  index  0                                            23
+hex val 000102030405060708090A0B0C0D0E0F1011121314151617
+
+...will actually be printed in their test output as:
+
+        0706050403020100 F0E0D0C0B0A0908 1716151413121110
+
+So, for example, the Tiger hash value of the zero-
+length input is, in index 0-to-23 byte ordering:
+
+  3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3
+
+But they display it as:
+
+  24F0130C63AC9332 16166E76B1BB925F F373DE2D49584E7A
+
+Watch out! This can lead you to make ordering mistakes
+if you're writing Tiger code to try to match this output 
+(as some implementations of the Java Cryptix library have).
+Or, this might make you overlook platform-specific 
+ordering problems, if your 0-to-23 output seems to match
+their test output.
+
