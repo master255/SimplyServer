@@ -4,12 +4,36 @@ namespace SimplyServer {
 
 	using namespace System;
 	using namespace System::ComponentModel;
-	using namespace System::Collections;
 	using namespace System::Windows::Forms;
 	using namespace System::Data;
 	using namespace System::Drawing;
+	typedef void(*ONTTHWORKBEGINFUNC)(__int64 FileSize);
+	typedef void(*ONTTHWORKFUNC)(int iProcents, double fSpeed, __int64 Readed);
+	typedef void(*ONTTHWORKENDFUNC)();
+	public ref class TTTHFile
+	{
+	private:
 
-	
+	protected:
+		static int iProcents_;
+		static double fSpeed_;
+		static __int64 iFileSize_;
+		static __int64 iTotalReaded_;
+		void  SyncOnWorkBegin();
+		void  SyncOnWork();
+		void  SyncOnWorkEnd();
+	public:
+		TTTHFile(bool CreateSuspended);
+		static void ProcessDirectory(String^ targetDirectory);
+		ONTTHWORKBEGINFUNC OnWorkBegin;
+		ONTTHWORKFUNC OnWork;
+		ONTTHWORKENDFUNC OnWorkEnd;
+		static void Execute();
+		static char *File1;
+		int Priority; // приоритет потока (см. SetThreadPriority)
+		String^ TTH;
+		static int Interval; // период вызовы OnWork
+	};
 
 	/// <summary>
 	/// Summary for MyForm
@@ -241,34 +265,6 @@ namespace SimplyServer {
 			SimplyServer::TTTHFile::ProcessDirectory(item);
 		}
 	}
-	};
-
-	typedef void(*ONTTHWORKBEGINFUNC)(__int64 FileSize);
-	typedef void(*ONTTHWORKFUNC)(int iProcents, double fSpeed, __int64 Readed);
-	typedef void(*ONTTHWORKENDFUNC)();
-
-	public ref class TTTHFile
-	{
-	private:
-
-	protected:
-		static int iProcents_;
-		static double fSpeed_;
-		static __int64 iFileSize_;
-		static __int64 iTotalReaded_;
-		void  SyncOnWorkBegin();
-		void  SyncOnWork();
-		void  SyncOnWorkEnd();
-	public:
-		TTTHFile(bool CreateSuspended);
-		static void ProcessDirectory(String^ targetDirectory);
-		ONTTHWORKBEGINFUNC OnWorkBegin;
-		ONTTHWORKFUNC OnWork;
-		ONTTHWORKENDFUNC OnWorkEnd;
-		static void Execute();
-		static String^ File;
-		int Priority; // приоритет потока (см. SetThreadPriority)
-		String^ TTH;
-		static int Interval; // период вызовы OnWork
-	};
+};
+	
 }

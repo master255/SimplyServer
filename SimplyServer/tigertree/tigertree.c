@@ -105,13 +105,14 @@ void tt_update(TT_CONTEXT *ctx, byte *buffer, word32 len)
 	  unsigned left = BLOCKSIZE - ctx->index;
 	  if (len < left)
 		{
-		memmove(ctx->block + ctx->index, buffer, len);
+			
+			memmove(ctx->block + ctx->index, buffer, len);
 		ctx->index += len;
 		return; /* Finished */
 		}
 	  else
 		{
-		memmove(ctx->block + ctx->index, buffer, left);
+			memmove(ctx->block + ctx->index, buffer, left);
 		ctx->index = BLOCKSIZE;
 		tt_block(ctx);
 		buffer += left;
