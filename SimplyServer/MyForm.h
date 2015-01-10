@@ -493,7 +493,7 @@ private: System::Void MyForm_FormClosing(System::Object^  sender, System::Window
 	{
 		ML->SetValue("SaveFile", fileName);
 		ML->SetValue("Dontfldr", skip);
-		String^ fold;
+		String^ fold="";
 			for (int i = 0; i < listBox1->Items->Count; i++)
 			{
 				fold = fold + listBox1->GetItemText(listBox1->Items[i])+"|";
