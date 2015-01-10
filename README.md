@@ -1,0 +1,2 @@
+# SimplyServer
+Future cloud server
