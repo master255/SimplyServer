@@ -7,39 +7,16 @@ namespace SimplyServer {
 	using namespace System::Windows::Forms;
 	using namespace System::Data;
 	using namespace System::Drawing;
-	typedef void(*ONTTHWORKBEGINFUNC)(__int64 FileSize);
-	typedef void(*ONTTHWORKFUNC)(int iProcents, double fSpeed, __int64 Readed);
-	typedef void(*ONTTHWORKENDFUNC)();
-	public ref class TTTHFile
-	{
-	private:
-
-	protected:
-		static int iProcents_;
-		static double fSpeed_;
-		static __int64 iFileSize_;
-		static __int64 iTotalReaded_;
-		void  SyncOnWorkBegin();
-		void  SyncOnWork();
-		void  SyncOnWorkEnd();
-	public:
-		TTTHFile(bool CreateSuspended);
-		static void ProcessDirectory(String^ targetDirectory);
-		ONTTHWORKBEGINFUNC OnWorkBegin;
-		ONTTHWORKFUNC OnWork;
-		ONTTHWORKENDFUNC OnWorkEnd;
-		static void Execute();
-		static char *File1;
-		int Priority; // приоритет потока (см. SetThreadPriority)
-		String^ TTH;
-		static int Interval; // период вызовы OnWork
-	};
-
+	using namespace System::Threading;
+	using namespace System::IO;
+	using namespace System::Diagnostics;
+	using namespace Microsoft::Win32;
 	/// <summary>
 	/// Summary for MyForm
 	/// </summary>
 	public ref class MyForm : public System::Windows::Forms::Form
 	{
+		
 	public:
 		MyForm(void)
 		{
@@ -48,7 +25,6 @@ namespace SimplyServer {
 			//TODO: Add the constructor code here
 			//
 		}
-
 	protected:
 		/// <summary>
 		/// Clean up any resources being used.
@@ -74,8 +50,63 @@ namespace SimplyServer {
 	private: String^ fileName;
 	private: System::Windows::Forms::FolderBrowserDialog^  folderBrowserDialog1;
 	private: System::Windows::Forms::SaveFileDialog^  saveFileDialog1;
+	private: System::Windows::Forms::Label^  label2;
+	private: System::Windows::Forms::Label^  label3;
+	private: Thread ^ thread;
+	private: System::Windows::Forms::Button^  button5;
+	private: ToolTip^ tt = gcnew ToolTip();
+	private: bool stop;
+	private: StreamWriter^ sw;
+	private: int skip = 3;
+	private: System::Windows::Forms::TextBox^  textBox3;
+	private: System::Windows::Forms::Label^  label4;
+	private: RegistryKey^ CU;
+	private: RegistryKey^ ML;
+	private: System::Windows::Forms::LinkLabel^  linkLabel1;
+	private: System::Windows::Forms::LinkLabel^  linkLabel2;
+	private: System::Windows::Forms::LinkLabel^  linkLabel3;
+
+	private: char*TTH = new char[24];
+	public:
+		delegate void UpdateTextCallback(String^ text);
+		delegate void StopScanCallback();
+		void ScanDir();
+		void ProcessDirectory(String^ targetDirectory);
+		void ProcessFile(char *file, String^ file1);
+		void UpdateText(String^ text)
+		{
+			if (label3->InvokeRequired)
+			{
+				UpdateTextCallback^ tempDelegate =
+					gcnew UpdateTextCallback(this, &SimplyServer::MyForm::UpdateText);
+				//cli::array<System::Object^>^ args = gcnew cli::array<System::Object^>(1);
+				//args[0] = text; на будущее
+				label3->Invoke(tempDelegate, text);
+			}
+			else {
+				label3->Text = text;
+				tt->SetToolTip(label3, text);
+			}
+		}
+		void StopScan()
+		{
+			if ((button3->InvokeRequired)||(button5->InvokeRequired))
+			{
+				StopScanCallback^ tempDelegate1 =
+					gcnew StopScanCallback(this, &SimplyServer::MyForm::StopScan);
+				//cli::array<System::Object^>^ args = gcnew cli::array<System::Object^>(1);
+				//args[0] = text; на будущее
+				button3->Invoke(tempDelegate1);
+				button5->Invoke(tempDelegate1);
+			}
+			else {
+				button3->Visible = true;
+				button5->Visible = false;
+			}
+		}
 	protected:
 	private:
+		
 		/// <summary>
 		/// Required designer variable.
 		/// </summary>
@@ -88,6 +119,7 @@ namespace SimplyServer {
 		/// </summary>
 		void InitializeComponent(void)
 		{
+			System::ComponentModel::ComponentResourceManager^  resources = (gcnew System::ComponentModel::ComponentResourceManager(MyForm::typeid));
 			this->button1 = (gcnew System::Windows::Forms::Button());
 			this->checkBox1 = (gcnew System::Windows::Forms::CheckBox());
 			this->label1 = (gcnew System::Windows::Forms::Label());
@@ -100,12 +132,20 @@ namespace SimplyServer {
 			this->button4 = (gcnew System::Windows::Forms::Button());
 			this->folderBrowserDialog1 = (gcnew System::Windows::Forms::FolderBrowserDialog());
 			this->saveFileDialog1 = (gcnew System::Windows::Forms::SaveFileDialog());
+			this->label2 = (gcnew System::Windows::Forms::Label());
+			this->label3 = (gcnew System::Windows::Forms::Label());
+			this->button5 = (gcnew System::Windows::Forms::Button());
+			this->textBox3 = (gcnew System::Windows::Forms::TextBox());
+			this->label4 = (gcnew System::Windows::Forms::Label());
+			this->linkLabel1 = (gcnew System::Windows::Forms::LinkLabel());
+			this->linkLabel2 = (gcnew System::Windows::Forms::LinkLabel());
+			this->linkLabel3 = (gcnew System::Windows::Forms::LinkLabel());
 			this->groupBox1->SuspendLayout();
 			this->SuspendLayout();
 			// 
 			// button1
 			// 
-			this->button1->Location = System::Drawing::Point(22, 348);
+			this->button1->Location = System::Drawing::Point(12, 348);
 			this->button1->Name = L"button1";
 			this->button1->Size = System::Drawing::Size(107, 38);
 			this->button1->TabIndex = 0;
@@ -164,7 +204,7 @@ namespace SimplyServer {
 			// 
 			// button2
 			// 
-			this->button2->Location = System::Drawing::Point(136, 349);
+			this->button2->Location = System::Drawing::Point(125, 348);
 			this->button2->Name = L"button2";
 			this->button2->Size = System::Drawing::Size(89, 37);
 			this->button2->TabIndex = 5;
@@ -174,7 +214,7 @@ namespace SimplyServer {
 			// 
 			// button3
 			// 
-			this->button3->Location = System::Drawing::Point(232, 349);
+			this->button3->Location = System::Drawing::Point(220, 349);
 			this->button3->Name = L"button3";
 			this->button3->Size = System::Drawing::Size(100, 37);
 			this->button3->TabIndex = 6;
@@ -188,7 +228,8 @@ namespace SimplyServer {
 			this->textBox2->Name = L"textBox2";
 			this->textBox2->Size = System::Drawing::Size(358, 20);
 			this->textBox2->TabIndex = 7;
-			this->textBox2->Text = L"Choose save file directory";
+			this->textBox2->Text = L"Choose directory to save file";
+			this->textBox2->TextChanged += gcnew System::EventHandler(this, &MyForm::textBox2_TextChanged);
 			// 
 			// button4
 			// 
@@ -208,15 +249,105 @@ namespace SimplyServer {
 			// 
 			this->saveFileDialog1->DefaultExt = L"txt";
 			this->saveFileDialog1->FileName = L"tth";
-			this->saveFileDialog1->Filter = L"Text files (*.txt)|*.txt|All files (*.*)|*.*";
+			this->saveFileDialog1->Filter = L"CSV (*.csv)|*.csv|All files (*.*)|*.*";
 			this->saveFileDialog1->InitialDirectory = L"%USERPROFILE%\\Desktop";
 			this->saveFileDialog1->RestoreDirectory = true;
+			// 
+			// label2
+			// 
+			this->label2->AutoSize = true;
+			this->label2->Location = System::Drawing::Point(19, 399);
+			this->label2->Name = L"label2";
+			this->label2->Size = System::Drawing::Size(60, 13);
+			this->label2->TabIndex = 9;
+			this->label2->Text = L"Current file:";
+			this->label2->Visible = false;
+			// 
+			// label3
+			// 
+			this->label3->AutoSize = true;
+			this->label3->Location = System::Drawing::Point(86, 399);
+			this->label3->MaximumSize = System::Drawing::Size(400, 0);
+			this->label3->Name = L"label3";
+			this->label3->Size = System::Drawing::Size(0, 13);
+			this->label3->TabIndex = 10;
+			// 
+			// button5
+			// 
+			this->button5->Location = System::Drawing::Point(220, 348);
+			this->button5->Name = L"button5";
+			this->button5->Size = System::Drawing::Size(100, 37);
+			this->button5->TabIndex = 11;
+			this->button5->Text = L"Stop Scan";
+			this->button5->UseVisualStyleBackColor = true;
+			this->button5->Visible = false;
+			this->button5->Click += gcnew System::EventHandler(this, &MyForm::button5_Click);
+			// 
+			// textBox3
+			// 
+			this->textBox3->Location = System::Drawing::Point(421, 370);
+			this->textBox3->Name = L"textBox3";
+			this->textBox3->Size = System::Drawing::Size(34, 20);
+			this->textBox3->TabIndex = 12;
+			this->textBox3->Text = L"3";
+			this->textBox3->TextAlign = System::Windows::Forms::HorizontalAlignment::Center;
+			this->textBox3->TextChanged += gcnew System::EventHandler(this, &MyForm::textBox3_TextChanged);
+			// 
+			// label4
+			// 
+			this->label4->AutoSize = true;
+			this->label4->Location = System::Drawing::Point(326, 373);
+			this->label4->Name = L"label4";
+			this->label4->Size = System::Drawing::Size(89, 13);
+			this->label4->TabIndex = 13;
+			this->label4->Text = L"Don\'t write folder:";
+			// 
+			// linkLabel1
+			// 
+			this->linkLabel1->AutoSize = true;
+			this->linkLabel1->Location = System::Drawing::Point(460, 9);
+			this->linkLabel1->Name = L"linkLabel1";
+			this->linkLabel1->Size = System::Drawing::Size(25, 13);
+			this->linkLabel1->TabIndex = 14;
+			this->linkLabel1->TabStop = true;
+			this->linkLabel1->Text = L"Site";
+			this->linkLabel1->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &MyForm::linkLabel1_LinkClicked);
+			// 
+			// linkLabel2
+			// 
+			this->linkLabel2->AutoSize = true;
+			this->linkLabel2->Location = System::Drawing::Point(430, 22);
+			this->linkLabel2->Name = L"linkLabel2";
+			this->linkLabel2->Size = System::Drawing::Size(55, 13);
+			this->linkLabel2->TabIndex = 15;
+			this->linkLabel2->TabStop = true;
+			this->linkLabel2->Text = L"Feedback";
+			this->linkLabel2->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &MyForm::linkLabel2_LinkClicked);
+			// 
+			// linkLabel3
+			// 
+			this->linkLabel3->AutoSize = true;
+			this->linkLabel3->Location = System::Drawing::Point(444, 37);
+			this->linkLabel3->Name = L"linkLabel3";
+			this->linkLabel3->Size = System::Drawing::Size(41, 13);
+			this->linkLabel3->TabIndex = 16;
+			this->linkLabel3->TabStop = true;
+			this->linkLabel3->Text = L"Source";
+			this->linkLabel3->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &MyForm::linkLabel3_LinkClicked);
 			// 
 			// MyForm
 			// 
 			this->AutoScaleDimensions = System::Drawing::SizeF(6, 13);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
-			this->ClientSize = System::Drawing::Size(494, 411);
+			this->ClientSize = System::Drawing::Size(494, 435);
+			this->Controls->Add(this->linkLabel3);
+			this->Controls->Add(this->linkLabel2);
+			this->Controls->Add(this->linkLabel1);
+			this->Controls->Add(this->label4);
+			this->Controls->Add(this->textBox3);
+			this->Controls->Add(this->button5);
+			this->Controls->Add(this->label3);
+			this->Controls->Add(this->label2);
 			this->Controls->Add(this->button4);
 			this->Controls->Add(this->textBox2);
 			this->Controls->Add(this->button3);
@@ -227,8 +358,11 @@ namespace SimplyServer {
 			this->Controls->Add(this->checkBox1);
 			this->Controls->Add(this->button1);
 			this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedToolWindow;
+			this->Icon = (cli::safe_cast<System::Drawing::Icon^>(resources->GetObject(L"$this.Icon")));
 			this->Name = L"MyForm";
 			this->Text = L"Simply Server";
+			this->FormClosing += gcnew System::Windows::Forms::FormClosingEventHandler(this, &MyForm::MyForm_FormClosing);
+			this->Load += gcnew System::EventHandler(this, &MyForm::MyForm_Load);
 			this->groupBox1->ResumeLayout(false);
 			this->ResumeLayout(false);
 			this->PerformLayout();
@@ -258,13 +392,127 @@ namespace SimplyServer {
 			textBox2->Text = fileName;
 		}
 	}
+	 
 
 	private: System::Void button3_Click(System::Object^  sender, System::EventArgs^  e) {
-		for each (String ^ item in listBox1->Items)
+		
+		if (thread == nullptr)
 		{
-			SimplyServer::TTTHFile::ProcessDirectory(item);
+			thread = gcnew Thread(gcnew ThreadStart(this, &MyForm::ScanDir));
+		}
+		else {
+			delete thread;
+			System::GC::Collect();
+			thread = gcnew Thread(gcnew ThreadStart(this, &MyForm::ScanDir));
+		}
+		if ((listBox1->Items->Count>0) && (!thread->IsAlive) && ((fileName!=nullptr)&&(fileName->Length>3))) {
+			stop = false;
+			thread->Start();
+			label2->Visible = true;
+				button3->Visible = false;
+				button5->Visible = true;
+		}
+		else {
+			label3->Text = "Choose folders and file to save";
 		}
 	}
-};
+private: System::Void button5_Click(System::Object^  sender, System::EventArgs^  e) {
+	stop = true;
+	button3->Visible = true;
+	button5->Visible = false;
+}
+private: System::Void MyForm_Load(System::Object^  sender, System::EventArgs^  e) {
+	LinkLabel::Link^ link = gcnew LinkLabel::Link();
+	link->LinkData = "http://master255.org/";
+	linkLabel1->Links->Add(link);
+	LinkLabel::Link^ link1 = gcnew LinkLabel::Link();
+	link1->LinkData = "http://4pda.ru/forum/index.php?showtopic=580001";
+	linkLabel2->Links->Add(link1);
+	LinkLabel::Link^ link2 = gcnew LinkLabel::Link();
+	link2->LinkData = "https://github.com/master255/SimplyServer";
+	linkLabel3->Links->Add(link2);
 	
+	try{
+	CU = Registry::CurrentUser;
+	ML = CU->OpenSubKey("SOFTWARE\\Masters\\Media Library", true);
+	if (ML != nullptr) {
+		fileName = static_cast<String^>(ML->GetValue("SaveFile"));
+		skip = static_cast<int>(ML->GetValue("Dontfldr"));
+		textBox3->Text = skip.ToString();
+		String^ fold = static_cast<String^>(ML->GetValue("Folders"));
+		int y;
+		for (int i = 0; i < fold->Length; i++)
+			{
+				y = fold->IndexOf("|", i);
+				if (y>0) {
+					listBox1->Items->Add(fold->Substring(i, y-i));
+					i = y;
+				}
+				else { break; }
+			}
+	}
+	else {
+		ML=CU->CreateSubKey("SOFTWARE\\Masters\\Media Library");
+		ML->SetValue("SaveFile", "");
+		ML->SetValue("Dontfldr", 3);
+		ML->SetValue("Folders", "");
+	}
+	}
+	catch (Exception^ e)
+	{
+		
+	}
+	try{
+		if (fileName == nullptr)
+	fileName = Environment::GetFolderPath(Environment::SpecialFolder::DesktopDirectory) + "\\tth.csv";
+	textBox2->Text = fileName;
+	}
+	catch (Exception^ e)
+	{}
+}
+private: System::Void linkLabel1_LinkClicked(System::Object^  sender, System::Windows::Forms::LinkLabelLinkClickedEventArgs^  e) {
+	Process::Start(e->Link->LinkData->ToString());
+}
+private: System::Void linkLabel2_LinkClicked(System::Object^  sender, System::Windows::Forms::LinkLabelLinkClickedEventArgs^  e) {
+	Process::Start(e->Link->LinkData->ToString());
+}
+private: System::Void linkLabel3_LinkClicked(System::Object^  sender, System::Windows::Forms::LinkLabelLinkClickedEventArgs^  e) {
+	Process::Start(e->Link->LinkData->ToString());
+}
+	private: System::Void textBox3_TextChanged(System::Object^  sender, System::EventArgs^  e) {
+		try{
+		skip = int::Parse(textBox3->Text);
+	}
+			 catch (Exception^ e)
+			 {
+				 textBox3->Text = "3";
+			 }
+}
+private: System::Void MyForm_FormClosing(System::Object^  sender, System::Windows::Forms::FormClosingEventArgs^  e) {
+	try
+	{
+		ML->SetValue("SaveFile", fileName);
+		ML->SetValue("Dontfldr", skip);
+		String^ fold;
+			for (int i = 0; i < listBox1->Items->Count; i++)
+			{
+				fold = fold + listBox1->GetItemText(listBox1->Items[i])+"|";
+			}
+		ML->SetValue("Folders", fold);
+	}
+	catch (Exception^ e)
+	{
+		MessageBox::Show(e->Message);
+	}
+	finally
+	{
+		if (CU) CU->Close();
+		if (ML) ML->Close();
+	}
+}
+
+private: System::Void textBox2_TextChanged(System::Object^  sender, System::EventArgs^  e) {
+	fileName = textBox2->Text;
+}
+};
 }
