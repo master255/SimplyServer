@@ -64,7 +64,7 @@ namespace SimplyServer {
 	private: Thread ^ thread;
 	private: System::Windows::Forms::Button^  button5;
 	private: ToolTip^ tt = gcnew ToolTip();
-	private: bool stop, first;
+	private: bool stop, first, recalc;
 	private: XmlDocument^ Xml1;
 	private: XmlTextWriter^ xw;
 	private: int skipFile = 10;

@@ -78,24 +78,6 @@ void  SimplyServer::MyForm::Bclick()
 }
 void  SimplyServer::MyForm::ProcessFile(String^ file1)
 {
-	if (first == false)
-	{
-		query = "/";
-		filepaths = file1->Substring(file1->IndexOf(item->Substring(item->LastIndexOf("\\") + 1)))->Split(sl->ToCharArray());
-		for (int i = 0; i < filepaths->Length; i++)
-		{
-			if (i == (filepaths->Length - 1)) {
-				query = query + "/File [@Name=\"" + filepaths[i] + "\"]";
-			}
-			else {
-				query = query + "/Directory [@Name=\"" + filepaths[i] + "\"]";
-			}
-		}
-		node = Xml1->SelectSingleNode(query);
-		if ((node != nullptr) && (node->Name == "File")) {
-			return;
-		};
-	}
 	HANDLE hFile;
 	char* file2 = (char*)(void*)Marshal::StringToHGlobalAnsi(file1);
 	hFile = CreateFile(file2,
@@ -110,6 +92,31 @@ void  SimplyServer::MyForm::ProcessFile(String^ file1)
 	GetFileSizeEx(hFile, &size);
 	if (size.QuadPart > (skipFile * 1048576))
 	{
+		recalc = false;
+		if (first == false)
+		{
+			query = "/";
+			filepaths = file1->Substring(file1->IndexOf(item->Substring(item->LastIndexOf("\\") + 1)))->Split(sl->ToCharArray());
+			for (int i = 0; i < filepaths->Length; i++)
+			{
+				if (i == (filepaths->Length - 1)) {
+					query = query + "/File [@Name=\"" + filepaths[i] + "\"]";
+				}
+				else {
+					query = query + "/Directory [@Name=\"" + filepaths[i] + "\"]";
+				}
+			}
+			node = Xml1->SelectSingleNode(query);
+			if ((node != nullptr) && (node->Name == "File")) {
+				if ((int::Parse(node->Attributes->GetNamedItem("Size")->Value)) == size.QuadPart)
+					{
+						return; }
+				else {
+					recalc = true;
+				}
+			};
+		}
+
 		// init TTH
 		tth_ctx ctx;
 		unsigned char hash[tiger_hash_length];
@@ -152,7 +159,9 @@ void  SimplyServer::MyForm::ProcessFile(String^ file1)
 				node = Xml1->SelectSingleNode(query);
 				if (node != nullptr) {
 					tmpNode = node;
-					continue;
+					if ((recalc == false) || (i1 < filepaths->Length - 1)) {
+						continue;
+					}
 				};
 				if (i1 == filepaths->Length - 1) {
 					NewElem = Xml1->CreateElement("File");
@@ -166,10 +175,16 @@ void  SimplyServer::MyForm::ProcessFile(String^ file1)
 				}
 
 				if (tmpNode != nullptr) {
-					tmpNode = tmpNode->AppendChild(NewElem);
+					if ((recalc == false) || (i1 < filepaths->Length - 1))
+					{
+						tmpNode = tmpNode->AppendChild(NewElem);
+					}
+					else {
+						tmpNode = tmpNode->ParentNode->ReplaceChild(NewElem, tmpNode);
+					}
 				}
 				else {
-					tmpNode = Xml1->DocumentElement->AppendChild(NewElem);
+						tmpNode = Xml1->DocumentElement->AppendChild(NewElem);
 				}
 			}
 		}
@@ -271,7 +286,7 @@ void SimplyServer::MyForm::ScanDir()
 		else {
 			first = true;
 		}
-		
+
 		String^ path = fileName->Remove(fileName->LastIndexOf("."));
 		if (first == false){
 			Xml1 = gcnew XmlDocument;
