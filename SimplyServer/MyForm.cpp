@@ -109,7 +109,8 @@ void  SimplyServer::MyForm::ProcessFile(String^ file1)
 			node = Xml1->SelectSingleNode(query);
 			if ((node != nullptr) && (node->Name == "File")) {
 				if ((int::Parse(node->Attributes->GetNamedItem("Size")->Value)) == size.QuadPart)
-					{
+				{
+					CloseHandle(hFile);
 						return; }
 				else {
 					recalc = true;
