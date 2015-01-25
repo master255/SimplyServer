@@ -79,15 +79,14 @@ void  SimplyServer::MyForm::Bclick()
 void  SimplyServer::MyForm::ProcessFile(String^ file1)
 {
 	HANDLE hFile;
-	char* file2 = (char*)(void*)Marshal::StringToHGlobalAnsi(file1);
-	hFile = CreateFile(file2,
+	LPCWSTR file2 = (LPCWSTR)Marshal::StringToHGlobalUni(file1).ToPointer();
+	hFile = CreateFileW(file2,
 		GENERIC_READ, // open for reading
 		0, // do not share
 		NULL, // default security
 		OPEN_EXISTING, // existing file only
 		FILE_ATTRIBUTE_NORMAL, // normal file
 		NULL);
-	Marshal::FreeHGlobal((IntPtr)file2);
 	LARGE_INTEGER size;
 	GetFileSizeEx(hFile, &size);
 	if (size.QuadPart > (skipFile * 1048576))
